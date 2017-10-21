@@ -1,46 +1,36 @@
-package Data;
+package com.example.tgill.tldl;
 
 import android.util.Log;
-import android.widget.Toast;
 
-import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import Util.Utils;
-
-/**
- * Created by jason on 7/29/16.
- */
 public class HttpClient {
-    public String getData (String convertTo) throws IOException{
+    public static int sendData (String base64Audio) throws IOException{
         HttpURLConnection connection = null;
         InputStream inputStream = null;
         try {
             Log.v("HTTP", "about to open connection");
-            connection = (HttpURLConnection) (new URL(Utils.BASE_URL)).openConnection();
-            connection.setRequestMethod("GET");
+            connection = (HttpURLConnection) (new URL("http://10.0.2.2:3000/sendAudio")).openConnection();
+            connection.setRequestMethod("POST");
             connection.setDoInput(true);
             connection.setDoOutput(true);
             connection.connect();
 
-            StringBuffer stringBuffer = new StringBuffer();
-            inputStream = connection.getInputStream();
+            OutputStream os = connection.getOutputStream();
+            BufferedWriter writer = new BufferedWriter(
+                    new OutputStreamWriter(os, "UTF-8"));
+            writer.write(base64Audio);
 
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
-            String line = null;
-
-            while ((line = bufferedReader.readLine()) != null) {
-                stringBuffer.append(line + "\r\n");
-            }
-
-            inputStream.close();
-            connection.disconnect();
-            Log.v("HttpClient", "JUst disconnected. have data");
-            return stringBuffer.toString();
+            writer.flush();
+            writer.close();
+            os.close();
+            return connection.getResponseCode();
         }
         catch (IOException e) {
             Log.v("Connecting", "Could not connect");

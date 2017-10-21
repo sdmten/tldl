@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.constraint.ConstraintLayout
+<RelativeLayout
         xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:tools="http://schemas.android.com/tools"
         xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -7,15 +7,17 @@
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         tools:showIn="@layout/activity_main"
-        tools:context="com.example.tgill.tldl.MainActivity">
+        tools:context="com.example.tgill.tldl.MainActivity" tools:layout_editor_absoluteY="81dp"
+        tools:layout_editor_absoluteX="0dp">
 
-    <TextView
+    <Button
+            android:text="Start"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Hello World!"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintLeft_toLeftOf="parent"
-            app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintTop_toTopOf="parent"/>
-
-</android.support.constraint.ConstraintLayout>
+            android:layout_height="wrap_content" android:layout_centerVertical="true" android:layout_centerHorizontal="true"
+            android:id="@+id/button_start"/>
+    <Button
+            android:text="Stop"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_below="@+id/button_start" android:layout_centerHorizontal="true"
+            android:id="@+id/button_stop" android:enabled="false"/>
+</RelativeLayout>
