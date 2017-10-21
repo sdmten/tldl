@@ -20,11 +20,13 @@ public class HttpClient {
             connection.setRequestMethod("POST");
             connection.setDoInput(true);
             connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
             connection.connect();
 
             OutputStream os = connection.getOutputStream();
             BufferedWriter writer = new BufferedWriter(
                     new OutputStreamWriter(os, "UTF-8"));
+            writer.write("audioString=");
             writer.write(base64Audio);
 
             writer.flush();

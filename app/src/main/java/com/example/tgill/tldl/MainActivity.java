@@ -3,6 +3,8 @@ package com.example.tgill.tldl;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.media.MediaRecorder.AudioEncoder;
 import android.os.Bundle;
@@ -23,7 +25,9 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -39,6 +43,16 @@ public class MainActivity extends AppCompatActivity {
     private MediaRecorder mRecorder = null;
 
     private ExecutorService executorService;
+
+    private static final int RECORDER_SAMPLERATE = 16000;
+    private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
+    private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+    private AudioRecord recorder = null;
+    private Thread recordingThread = null;
+    private boolean isRecording = false;
+
+    int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
+    int BytesPerElement = 2; // 2 bytes in 16bit format
 
 
     private static final String LOG_TAG = "AudioRecordTest";
@@ -68,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void startRecording() {
+    /*private void startRecording() {
         mRecorder = new MediaRecorder();
         mRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         mRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
@@ -104,9 +118,10 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        final String shit = new String(Base64.encode(bytes, Base64.NO_WRAP));
+        try {
+            final String shit = URLEncoder.encode(new String(Base64.encode(bytes, Base64.NO_WRAP)), "UTF-8");
 
-            executorService.execute(new Runnable(){
+            executorService.execute(new Runnable() {
                 @Override
                 public void run() {
                     try {
@@ -116,8 +131,10 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             });
-
-    }
+        } catch (final Exception e) {
+            e.printStackTrace();
+        }
+    }*/
 
     class RecordButton extends AppCompatButton {
         boolean mStartRecording = true;
@@ -148,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
         String state = Environment.getExternalStorageState();
         if (Environment.MEDIA_MOUNTED.equals(state) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
             mFilePath = getExternalCacheDir().getAbsolutePath();
-            mFileName = "/audiorecordtest.3gp";
+            mFileName = "/audiorecordtest.pgm";
 
             ActivityCompat.requestPermissions(this, permissions, REQUEST_RECORD_AUDIO_PERMISSION);
 
@@ -164,6 +181,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         this.executorService = Executors.newSingleThreadExecutor();
+
+        int bufferSize = AudioRecord.getMinBufferSize(RECORDER_SAMPLERATE,
+                RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
     }
 
     @Override
@@ -186,6 +206,110 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void startRecording() {
+        recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
+                RECORDER_SAMPLERATE, RECORDER_CHANNELS,
+                RECORDER_AUDIO_ENCODING, BufferElements2Rec * BytesPerElement);
+
+        recorder.startRecording();
+        isRecording = true;
+        recordingThread = new Thread(new Runnable() {
+            public void run() {
+                writeAudioDataToFile();
+            }
+        }, "AudioRecorder Thread");
+        recordingThread.start();
+    }
+
+    //convert short to byte
+    private byte[] short2byte(short[] sData) {
+        int shortArrsize = sData.length;
+        byte[] bytes = new byte[shortArrsize * 2];
+        for (int i = 0; i < shortArrsize; i++) {
+            bytes[i * 2] = (byte) (sData[i] & 0x00FF);
+            bytes[(i * 2) + 1] = (byte) (sData[i] >> 8);
+            sData[i] = 0;
+        }
+        return bytes;
+
+    }
+
+    private void writeAudioDataToFile() {
+        // Write the output audio in byte
+
+        String filePath = mFilePath + mFileName;
+        short sData[] = new short[BufferElements2Rec];
+
+        FileOutputStream os = null;
+        try {
+            os = new FileOutputStream(filePath);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        while (isRecording) {
+            // gets the voice output from microphone to byte format
+
+            recorder.read(sData, 0, BufferElements2Rec);
+            System.out.println("Short writing to file" + sData.toString());
+            try {
+                // // writes the data to file from buffer
+                // // stores the voice buffer
+                byte bData[] = short2byte(sData);
+                os.write(bData, 0, BufferElements2Rec * BytesPerElement);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try {
+            os.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void stopRecording() {
+        // stops the recording activity
+        if (null != recorder) {
+            isRecording = false;
+            recorder.stop();
+            recorder.release();
+            recorder = null;
+            recordingThread = null;
+        }
+
+        File file = new File(mFilePath, mFileName);
+
+        int size = (int) file.length();
+        byte[] bytes = new byte[size];
+        try {
+            BufferedInputStream buf = new BufferedInputStream(new FileInputStream(file));
+            buf.read(bytes, 0, bytes.length);
+            buf.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            final String shit = URLEncoder.encode(new String(Base64.encode(bytes, Base64.NO_WRAP)), "UTF-8");
+
+            executorService.execute(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        sendData(shit);
+                    } catch (final IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        } catch (final Exception e) {
+            e.printStackTrace();
+        }
     }
 
 
